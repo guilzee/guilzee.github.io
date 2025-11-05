@@ -1,0 +1,134 @@
+---
+title: "#RWFD Season #4 Dataset #4"
+author: "Angie Guillory"
+date: "2025-11-04"
+categories: [R]
+image: "college.png"
+warning: false
+---
+
+# Student Outcomes: from College to Career
+Released November 3, 2025
+
+This dataset looks at how college students move from graduation to their first jobs—things like degree type, GPA, salary, and early employment outcomes. I wanted to get a quick sense of what patterns show up across campuses and whether factors like age or major make any real difference once students hit the workforce. 
+
+Nothing too complicated, just straightforward exploration to see what stands out and what doesn’t.
+
+
+```{r}
+library(readr)
+library(readxl)
+library(googlesheets4)
+library(dplyr)
+
+univ <- read.csv("C:/RProjects/RWFD/Input/synthetic_illinois_university_student_outcomes.csv")
+```
+
+
+Alright, diving into this dataset of Illinois university student outcomes. First thing, libraries loaded, CSV pulled in, we’re ready to roll :)
+
+
+Before anything fancy, I like to get a feel for what I’m working with.
+
+## When these students started
+
+```{r}
+range(univ$start_year)
+```
+
+So I checked the range of start years—2016 to 2020. That tells me we’re looking at roughly one full college cycle.
+
+
+Then I looked at how many different campuses we’re dealing with.
+
+## Where did they study?
+
+```{r}
+campusct <- univ %>%
+  count(univ$campus_location) %>%
+  nrow()
+print(campusct)
+```
+
+Three total, which makes sense for a state university system.
+
+
+Next up, total students across those years
+
+## How many students are we talking about?
+
+```{r}
+studentct <- univ %>%
+  count(univ$student_id) %>%
+  nrow()
+print(studentct)
+```
+
+five thousand!
+
+
+## How long did it take them to finish their degree?
+
+```{r}
+univ$program_duration <- univ$graduation_year - univ$start_year
+
+mean(univ$program_duration)
+```
+
+On average, students took four years to finish, which tracks with the standard timeline. No major surprises there.
+
+
+## Age at graduation
+
+```{r}
+range(univ$age_at_graduation)
+```
+
+Then I checked age at graduation, and the range came out between 22 and 29. That spread suggests a mix of traditional and slightly older students—maybe transfers or people coming back to school later.
+
+
+I wondered if age tied into what degrees people chose. I bucketed the ages and grouped them by degree program.
+
+## Does age influence degree choice?
+
+```{r}
+univ$agebucket <- cut(
+  univ$age_at_graduation,
+  breaks = c(0, 22, 25, 30, 40, 100),   # bins are (0,22], (22,25], (25,30], ...
+  labels = c("≤22", "23–25", "26–30", "31–40", "40+"),
+  right = TRUE,
+  include.lowest = TRUE
+)
+
+
+group <- univ %>%
+  select(degree_program, agebucket) %>%
+  group_by(degree_program, agebucket) %>%
+  summarise(count = n()) %>%
+  arrange(degree_program, agebucket)
+```
+
+
+```{r}
+age_vs_degreeprogram <- group %>%
+  arrange(desc(count))
+```
+
+Turns out, not really. The top programs stayed consistent across age groups: Business, STEM, and Health Sciences. So age didn’t seem to drive what major someone picked.
+
+
+After that, I wanted to see if age showed up somewhere else, like in jobs or pay after graduation
+
+## What about age and career outcomes?
+
+```{r}
+age_vs_salaryandjob <- univ %>%
+  group_by(agebucket) %>%
+  summarize(
+    avgsalary = mean(salary_first, na.rm = TRUE),
+    jobrate = mean(employment_status_6mo == "Employed", na.rm = TRUE)
+  )
+```
+
+I calculated the average salary and employment rate by age group. Again, not much variation. Whether someone graduated at 22 or 29, their early career outcomes looked pretty similar.
+
